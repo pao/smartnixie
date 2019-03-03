@@ -2,6 +2,9 @@
 
 import smbus
 import time
+from os import read
+import butter.timerfd as tfd
+import select
 
 bus = smbus.SMBus(0)
 
@@ -18,9 +21,17 @@ def setdigits(addrs, vals, sep):
     for addr, val in zip(addrs, chars):
         bus.write_byte_data(addr, REG_DIGIT, val)
 
+tv = tfd.TimerVal()
+tv.occuring.every(seconds=1).offset(seconds=long(time.time() + 2))
+timer = tfd.timerfd(clock_type=tfd.CLOCK_REALTIME)
+ep = select.epoll()
+ep.register(timer, select.EPOLLIN | select.EPOLLET)
+tfd.timerfd_settime(timer, tv, tfd.TFD_TIMER_ABSTIME)
+
 while True:
+    ep.poll()
     t = time.localtime()
     setdigits(hh, t.tm_hour, False)
     setdigits(mm, t.tm_min, t.tm_sec%2)
     setdigits(ss, t.tm_sec, t.tm_sec%2)
-    time.sleep(0.05)
+    read(timer, 8)
